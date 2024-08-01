@@ -1,21 +1,49 @@
 {{>partial_header}}
-using Newtonsoft.Json.Converters;
+using System;
+using System.Text.Json;
 
 namespace {{packageName}}.Client
 {
     /// <summary>
-    /// Formatter for 'date' openapi formats ss defined by full-date - RFC3339
+    /// Formatter for 'date' openapi formats as defined by full-date - RFC3339
     /// see https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#data-types
     /// </summary>
-    public class OpenAPIDateConverter : IsoDateTimeConverter
+    public class OpenAPIDateConverter : JsonConverter<DateTime>
     {
+        private const string DateFormat = "yyyy-MM-dd";
+
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenAPIDateConverter" /> class.
         /// </summary>
         public OpenAPIDateConverter()
         {
-            // full-date   = date-fullyear "-" date-month "-" date-mday
-            DateTimeFormat = "yyyy-MM-dd";
+        }
+
+        /// <summary>
+        /// Reads and converts the JSON to a DateTime object.
+        /// </summary>
+        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType != JsonTokenType.String)
+            {
+                throw new JsonException($"Unexpected token type: {reader.TokenType}. Expected a string.");
+            }
+
+            var dateString = reader.GetString();
+            if (DateTime.TryParseExact(dateString, DateFormat, null, System.Globalization.DateTimeStyles.None, out var date))
+            {
+                return date;
+            }
+
+            throw new JsonException($"Invalid date format: {dateString}. Expected format is {DateFormat}.");
+        }
+
+        /// <summary>
+        /// Converts the DateTime object to a JSON string.
+        /// </summary>
+        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value.ToString(DateFormat));
         }
     }
 }
